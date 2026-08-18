@@ -18,9 +18,10 @@ import (
 )
 
 type ClickPoint struct {
-	X      int    `json:"x"`
-	Y      int    `json:"y"`
-	Button string `json:"button"`
+	X      int     `json:"x"`
+	Y      int     `json:"y"`
+	Button string  `json:"button"`
+	Delay  float64 `json:"delay"`
 }
 
 const filename = "autoclicker-store.json"
@@ -53,7 +54,7 @@ func main() {
 	statusLabel := widget.NewLabel("Status: Ready (Press F2 to start recording)")
 	statusLabel.Alignment = fyne.TextAlignCenter
 
-	btnPlay := widget.NewButton("Play saved clicks (from aaa.json)", func() {
+	btnPlay := widget.NewButton("Play saved clicks", func() {
 		go playClicks(statusLabel)
 	})
 
@@ -69,8 +70,8 @@ func main() {
 }
 
 func listenHotkeys(label *widget.Label) {
-	procRegisterHK.Call(0, 1, 0, 0x71) // F2
-	procRegisterHK.Call(0, 2, 0, 0x72) // F3
+	procRegisterHK.Call(0, 1, 0, 0x71)
+	procRegisterHK.Call(0, 2, 0, 0x72)
 
 	defer func() {
 		procUnregisterHK.Call(0, 1)
@@ -132,7 +133,7 @@ func addClickPoint(label *widget.Label) {
 	}
 
 	x, y := robotgo.Location()
-	recorded = append(recorded, ClickPoint{X: x, Y: y, Button: "left"})
+	recorded = append(recorded, ClickPoint{X: x, Y: y, Button: "left", Delay: 1.0})
 	count := len(recorded)
 
 	fyne.Do(func() {
@@ -143,13 +144,13 @@ func addClickPoint(label *widget.Label) {
 func playClicks(label *widget.Label) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		fyne.Do(func() { label.SetText("Error: aaa.json not found") })
+		fyne.Do(func() { label.SetText(fmt.Sprintf("Error: %s not found", filename)) })
 		return
 	}
 
 	var points []ClickPoint
 	if err := json.Unmarshal(data, &points); err != nil {
-		fyne.Do(func() { label.SetText("Error: Invalid JSON format in aaa.json") })
+		fyne.Do(func() { label.SetText("Error: Invalid JSON format") })
 		return
 	}
 
@@ -165,7 +166,14 @@ func playClicks(label *widget.Label) {
 	for _, pt := range points {
 		robotgo.Move(pt.X, pt.Y)
 		robotgo.Click(pt.Button, false)
-		time.Sleep(200 * time.Millisecond)
+
+		delaySec := pt.Delay
+		if delaySec <= 0 {
+			delaySec = 1.0
+		}
+
+		sleepDuration := time.Duration(delaySec * float64(time.Second))
+		time.Sleep(sleepDuration)
 	}
 
 	fyne.Do(func() { label.SetText("Done!") })
