@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/go-vgo/robotgo"
@@ -70,6 +71,14 @@ func (r *Recorder) IsRecording() bool {
 	return r.isRecording
 }
 
+func (r *Recorder) GetRecorded() []ClickPoint {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	pts := make([]ClickPoint, len(r.recorded))
+	copy(pts, r.recorded)
+	return pts
+}
+
 func (r *Recorder) Start() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -91,13 +100,8 @@ func (r *Recorder) Stop() ([]ClickPoint, error) {
 	copy(dataToSave, r.recorded)
 	r.mu.Unlock()
 
-	fileData, err := json.MarshalIndent(dataToSave, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode JSON: %w", err)
-	}
-
-	if err := os.WriteFile(fileName, fileData, 0644); err != nil {
-		return nil, fmt.Errorf("failed to write file: %w", err)
+	if err := savePointsToJSON(dataToSave); err != nil {
+		return nil, err
 	}
 
 	return dataToSave, nil
@@ -123,29 +127,159 @@ func (r *Recorder) AddPoint(x, y int, button string, delay float64) (int, bool) 
 func main() {
 	a := app.New()
 	w := a.NewWindow("Auto Clicker (F2 Record | F3 Save Point)")
-	w.Resize(fyne.NewSize(380, 220))
+	w.Resize(fyne.NewSize(450, 480))
 
 	statusLabel := widget.NewLabel("Status: Ready (Press F2 to start recording)")
 	statusLabel.Alignment = fyne.TextAlignCenter
 
 	recorder := NewRecorder()
 
+	var displayPoints []ClickPoint
+	selectedIndex := -1 // ตัวแปรเก็บตำแหน่งรายการที่ถูกเลือกใน List
+
+	pointsList := widget.NewList(
+		func() int {
+			return len(displayPoints)
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("Template Point Item")
+		},
+		func(i widget.ListItemID, o fyne.CanvasObject) {
+			pt := displayPoints[i]
+			o.(*widget.Label).SetText(fmt.Sprintf("%d. X: %d, Y: %d | Button: %s | Delay: %.1fs", i+1, pt.X, pt.Y, pt.Button, pt.Delay))
+		},
+	)
+
+	// เมื่อคลิกเลือกรายการใน List
+	pointsList.OnSelected = func(id widget.ListItemID) {
+		selectedIndex = int(id)
+	}
+	pointsList.OnUnselected = func(id widget.ListItemID) {
+		selectedIndex = -1
+	}
+
+	// ฟังก์ชันรีเฟรชข้อมูลใน List
+	refreshUIList := func() {
+		fyne.Do(func() {
+			if recorder.IsRecording() {
+				displayPoints = recorder.GetRecorded()
+			} else {
+				displayPoints = loadPointsFromJSON()
+			}
+			selectedIndex = -1
+			pointsList.UnselectAll()
+			pointsList.Refresh()
+		})
+	}
+
+	displayPoints = loadPointsFromJSON()
+
 	btnPlay := widget.NewButton("Play Saved Clicks", func() {
 		go playClicks(statusLabel)
 	})
 
-	w.SetContent(container.NewVBox(
+	btnReload := widget.NewButton("Reload JSON", func() {
+		refreshUIList()
+		updateLabel(statusLabel, fmt.Sprintf("Reloaded %d points from JSON", len(displayPoints)))
+	})
+
+	// ปุ่มลบรายการที่เลือก
+	btnDeleteSelected := widget.NewButton("Delete Selected", func() {
+		if recorder.IsRecording() {
+			updateLabel(statusLabel, "Cannot delete while recording!")
+			return
+		}
+		if selectedIndex < 0 || selectedIndex >= len(displayPoints) {
+			updateLabel(statusLabel, "Please select an item to delete")
+			return
+		}
+
+		// ลบรายการที่ selectedIndex ออกจาก Array
+		displayPoints = append(displayPoints[:selectedIndex], displayPoints[selectedIndex+1:]...)
+		if err := savePointsToJSON(displayPoints); err != nil {
+			updateLabel(statusLabel, fmt.Sprintf("Error saving file: %v", err))
+			return
+		}
+
+		updateLabel(statusLabel, "Deleted selected item")
+		refreshUIList()
+	})
+
+	// ปุ่มลบทั้งหมด (พร้อม Popup ยืนยัน)
+	btnClearAll := widget.NewButton("Clear All", func() {
+		if recorder.IsRecording() {
+			updateLabel(statusLabel, "Cannot clear while recording!")
+			return
+		}
+		if len(displayPoints) == 0 {
+			updateLabel(statusLabel, "List is already empty")
+			return
+		}
+
+		dialog.ShowConfirm("Confirm Clear All", "Are you sure you want to delete all points?", func(confirmed bool) {
+			if confirmed {
+				displayPoints = []ClickPoint{}
+				if err := savePointsToJSON(displayPoints); err != nil {
+					updateLabel(statusLabel, fmt.Sprintf("Error saving file: %v", err))
+					return
+				}
+				updateLabel(statusLabel, "All points cleared")
+				refreshUIList()
+			}
+		}, w)
+	})
+
+	topBox := container.NewVBox(
 		widget.NewLabelWithStyle("Auto Clicker Recorder", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		statusLabel,
-		btnPlay,
+		container.NewGridWithColumns(2, btnPlay, btnReload),
+		widget.NewLabelWithStyle("Saved Click Points:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	)
+
+	bottomBox := container.NewGridWithColumns(2, btnDeleteSelected, btnClearAll)
+
+	w.SetContent(container.NewBorder(
+		topBox,
+		bottomBox,
+		nil,
+		nil,
+		pointsList,
 	))
 
-	go listenHotkeys(recorder, statusLabel)
+	go listenHotkeys(recorder, statusLabel, refreshUIList)
 
 	w.ShowAndRun()
 }
 
-func listenHotkeys(recorder *Recorder, label *widget.Label) {
+// ฟังก์ชันบันทึกข้อมูลลงไฟล์ JSON
+func savePointsToJSON(points []ClickPoint) error {
+	fileData, err := json.MarshalIndent(points, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to encode JSON: %w", err)
+	}
+
+	if err := os.WriteFile(fileName, fileData, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	return nil
+}
+
+// ฟังก์ชันดึงข้อมูลจุดคลิกจากไฟล์ JSON
+func loadPointsFromJSON() []ClickPoint {
+	data, err := os.ReadFile(fileName)
+	if err != nil {
+		return []ClickPoint{}
+	}
+
+	var points []ClickPoint
+	if err := json.Unmarshal(data, &points); err != nil {
+		return []ClickPoint{}
+	}
+
+	return points
+}
+
+func listenHotkeys(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
 	procRegisterHK.Call(0, 1, 0, vkF2)
 	procRegisterHK.Call(0, 2, 0, vkF3)
 
@@ -164,15 +298,15 @@ func listenHotkeys(recorder *Recorder, label *widget.Label) {
 		if msg.Message == wmHotkey {
 			switch msg.WParam {
 			case 1:
-				handleToggleRecording(recorder, label)
+				handleToggleRecording(recorder, label, onUpdateUI)
 			case 2:
-				handleAddPoint(recorder, label)
+				handleAddPoint(recorder, label, onUpdateUI)
 			}
 		}
 	}
 }
 
-func handleToggleRecording(recorder *Recorder, label *widget.Label) {
+func handleToggleRecording(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
 	if !recorder.IsRecording() {
 		loadedCount := recorder.Start()
 		updateLabel(label, fmt.Sprintf("Recording... (Loaded %d existing points)", loadedCount))
@@ -184,31 +318,23 @@ func handleToggleRecording(recorder *Recorder, label *widget.Label) {
 		}
 		updateLabel(label, fmt.Sprintf("Saved (%d total points) to %s", len(savedPoints), fileName))
 	}
+	onUpdateUI()
 }
 
-func handleAddPoint(recorder *Recorder, label *widget.Label) {
+func handleAddPoint(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
 	x, y := robotgo.Location()
 	count, added := recorder.AddPoint(x, y, "left", defaultDelaySec)
 	if added {
 		updateLabel(label, fmt.Sprintf("Point %d added at (%d, %d)", count, x, y))
+		onUpdateUI()
 	}
 }
 
 func playClicks(label *widget.Label) {
-	data, err := os.ReadFile(fileName)
-	if err != nil {
-		updateLabel(label, fmt.Sprintf("Error: %s not found", fileName))
-		return
-	}
-
-	var points []ClickPoint
-	if err := json.Unmarshal(data, &points); err != nil {
-		updateLabel(label, "Error: Invalid JSON format")
-		return
-	}
+	points := loadPointsFromJSON()
 
 	if len(points) == 0 {
-		updateLabel(label, "Warning: No points in file")
+		updateLabel(label, "Warning: No points in file or file not found")
 		return
 	}
 
