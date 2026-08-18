@@ -1,0 +1,77 @@
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"sync"
+)
+
+type Recorder struct {
+	mu          sync.RWMutex
+	isRecording bool
+	recorded    []ClickPoint
+}
+
+func NewRecorder() *Recorder {
+	return &Recorder{
+		recorded: make([]ClickPoint, 0),
+	}
+}
+
+func (r *Recorder) IsRecording() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.isRecording
+}
+
+func (r *Recorder) GetRecorded() []ClickPoint {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	pts := make([]ClickPoint, len(r.recorded))
+	copy(pts, r.recorded)
+	return pts
+}
+
+func (r *Recorder) Start() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.isRecording = true
+	r.recorded = []ClickPoint{}
+
+	if data, err := os.ReadFile(fileName); err == nil {
+		_ = json.Unmarshal(data, &r.recorded)
+	}
+	return len(r.recorded)
+}
+
+func (r *Recorder) Stop() ([]ClickPoint, error) {
+	r.mu.Lock()
+	r.isRecording = false
+	dataToSave := make([]ClickPoint, len(r.recorded))
+	copy(dataToSave, r.recorded)
+	r.mu.Unlock()
+
+	if err := savePointsToJSON(dataToSave); err != nil {
+		return nil, err
+	}
+
+	return dataToSave, nil
+}
+
+func (r *Recorder) AddPoint(x, y int, button string, delay float64) (int, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if !r.isRecording {
+		return 0, false
+	}
+
+	r.recorded = append(r.recorded, ClickPoint{
+		X:      x,
+		Y:      y,
+		Button: button,
+		Delay:  delay,
+	})
+	return len(r.recorded), true
+}
