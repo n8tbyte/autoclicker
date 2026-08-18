@@ -158,7 +158,7 @@ func playClicks(label *widget.Label) {
 		updateLabel(label, "Warning: No points in file or file not found")
 		return
 	}
-	updateLabel(label, "Playing clicks...")
+	updateLabel(label, "Play")
 	for _, pt := range points {
 		robotgo.Move(pt.X, pt.Y)
 		robotgo.Click(pt.Button, false)
