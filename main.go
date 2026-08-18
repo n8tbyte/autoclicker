@@ -101,10 +101,15 @@ func toggleRecording(label *widget.Label) {
 	if !isRecording {
 		isRecording = true
 		recorded = []ClickPoint{}
+
+		if data, err := os.ReadFile(filename); err == nil {
+			_ = json.Unmarshal(data, &recorded)
+		}
+
 		mu.Unlock()
 
 		fyne.Do(func() {
-			label.SetText("Recording started... (Press F3 to mark point, F2 to stop)")
+			label.SetText(fmt.Sprintf("Recording... (Loaded %d existing points)", len(recorded)))
 		})
 	} else {
 		isRecording = false
@@ -116,7 +121,7 @@ func toggleRecording(label *widget.Label) {
 		fyne.Do(func() {
 			if err == nil {
 				os.WriteFile(filename, fileData, 0644)
-				label.SetText(fmt.Sprintf("Saved (%d points) to %s", len(dataToSave), filename))
+				label.SetText(fmt.Sprintf("Saved (%d total points) to %s", len(dataToSave), filename))
 			} else {
 				label.SetText("Error saving file")
 			}
