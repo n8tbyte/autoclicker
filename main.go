@@ -18,12 +18,10 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// Const & Win32 API constants
 const (
 	fileName        = "autoclicker-store.json"
 	defaultDelaySec = 1.0
 
-	// Windows Hotkey & Message constants
 	wmHotkey = 0x0312
 	vkF2     = 0x71
 	vkF3     = 0x72
@@ -52,7 +50,6 @@ type winMSG struct {
 	Pt      struct{ X, Y int32 }
 }
 
-// Recorder manages state and concurrency safety for recording click sequences
 type Recorder struct {
 	mu          sync.RWMutex
 	isRecording bool
@@ -86,7 +83,6 @@ func (r *Recorder) Start() int {
 	r.isRecording = true
 	r.recorded = []ClickPoint{}
 
-	// Load existing points if available
 	if data, err := os.ReadFile(fileName); err == nil {
 		_ = json.Unmarshal(data, &r.recorded)
 	}
@@ -127,7 +123,7 @@ func (r *Recorder) AddPoint(x, y int, button string, delay float64) (int, bool) 
 func main() {
 	a := app.New()
 	w := a.NewWindow("Auto Clicker")
-	w.Resize(fyne.NewSize(200, 400))
+	w.Resize(fyne.NewSize(300, 400))
 
 	statusLabel := widget.NewLabel("Status: Ready (Press F2 to start recording)")
 	statusLabel.Alignment = fyne.TextAlignCenter
@@ -135,7 +131,7 @@ func main() {
 	recorder := NewRecorder()
 
 	var displayPoints []ClickPoint
-	selectedIndex := -1 // ตัวแปรเก็บตำแหน่งรายการที่ถูกเลือกใน List
+	selectedIndex := -1
 
 	pointsList := widget.NewList(
 		func() int {
@@ -150,7 +146,6 @@ func main() {
 		},
 	)
 
-	// เมื่อคลิกเลือกรายการใน List
 	pointsList.OnSelected = func(id widget.ListItemID) {
 		selectedIndex = int(id)
 	}
@@ -158,7 +153,6 @@ func main() {
 		selectedIndex = -1
 	}
 
-	// ฟังก์ชันรีเฟรชข้อมูลใน List
 	refreshUIList := func() {
 		fyne.Do(func() {
 			if recorder.IsRecording() {
@@ -183,7 +177,6 @@ func main() {
 		updateLabel(statusLabel, fmt.Sprintf("Reloaded %d points from JSON", len(displayPoints)))
 	})
 
-	// ปุ่มลบรายการที่เลือก
 	btnDeleteSelected := widget.NewButton("Delete Selected", func() {
 		if recorder.IsRecording() {
 			updateLabel(statusLabel, "Cannot delete while recording!")
@@ -194,7 +187,6 @@ func main() {
 			return
 		}
 
-		// ลบรายการที่ selectedIndex ออกจาก Array
 		displayPoints = append(displayPoints[:selectedIndex], displayPoints[selectedIndex+1:]...)
 		if err := savePointsToJSON(displayPoints); err != nil {
 			updateLabel(statusLabel, fmt.Sprintf("Error saving file: %v", err))
@@ -205,7 +197,6 @@ func main() {
 		refreshUIList()
 	})
 
-	// ปุ่มลบทั้งหมด (พร้อม Popup ยืนยัน)
 	btnClearAll := widget.NewButton("Clear All", func() {
 		if recorder.IsRecording() {
 			updateLabel(statusLabel, "Cannot clear while recording!")
@@ -251,7 +242,6 @@ func main() {
 	w.ShowAndRun()
 }
 
-// ฟังก์ชันบันทึกข้อมูลลงไฟล์ JSON
 func savePointsToJSON(points []ClickPoint) error {
 	fileData, err := json.MarshalIndent(points, "", "  ")
 	if err != nil {
@@ -264,7 +254,6 @@ func savePointsToJSON(points []ClickPoint) error {
 	return nil
 }
 
-// ฟังก์ชันดึงข้อมูลจุดคลิกจากไฟล์ JSON
 func loadPointsFromJSON() []ClickPoint {
 	data, err := os.ReadFile(fileName)
 	if err != nil {
@@ -355,7 +344,6 @@ func playClicks(label *widget.Label) {
 	updateLabel(label, "Done!")
 }
 
-// Helper to safely execute UI updates on the Fyne main thread
 func updateLabel(label *widget.Label, text string) {
 	fyne.Do(func() {
 		label.SetText(text)
