@@ -221,7 +221,6 @@ func main() {
 	})
 
 	topBox := container.NewVBox(
-		widget.NewLabelWithStyle("Auto Clicker Recorder", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		statusLabel,
 		container.NewGridWithColumns(2, btnPlay, btnReload),
 		widget.NewLabelWithStyle("Saved Click Points:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
