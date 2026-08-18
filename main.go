@@ -126,8 +126,8 @@ func (r *Recorder) AddPoint(x, y int, button string, delay float64) (int, bool) 
 
 func main() {
 	a := app.New()
-	w := a.NewWindow("Auto Clicker (F2 Record | F3 Save Point)")
-	w.Resize(fyne.NewSize(450, 480))
+	w := a.NewWindow("Auto Clicker")
+	w.Resize(fyne.NewSize(200, 400))
 
 	statusLabel := widget.NewLabel("Status: Ready (Press F2 to start recording)")
 	statusLabel.Alignment = fyne.TextAlignCenter
