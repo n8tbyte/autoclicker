@@ -85,7 +85,7 @@ func main() {
 			rowIndex := id
 			btnDelete.OnTapped = func() {
 				if recorder.IsRecording() {
-					updateLabel(statusLabel, "Cannot delete while recording!")
+					updateLabel(statusLabel, "Cannot delete while recording")
 					return
 				}
 				if rowIndex >= 0 && rowIndex < len(displayPoints) {
@@ -165,7 +165,7 @@ func playClicks(label *widget.Label) {
 		}
 		time.Sleep(time.Duration(delaySec * float64(time.Second)))
 	}
-	updateLabel(label, "Done!")
+	updateLabel(label, "Done")
 }
 
 func updateLabel(label *widget.Label, text string) {
