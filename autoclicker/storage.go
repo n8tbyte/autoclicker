@@ -22,12 +22,10 @@ func savePointsToCSV(points []ClickPoint) error {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	// เขียน Header
 	if err := writer.Write([]string{"x", "y", "button", "delay"}); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
-	// เขียนข้อมูลแต่ละแถว
 	for _, pt := range points {
 		record := []string{
 			strconv.Itoa(pt.X),
@@ -56,7 +54,7 @@ func loadPointsFromCSV() []ClickPoint {
 	}
 
 	var points []ClickPoint
-	// เริ่มอ่านจาก index 1 เพื่อข้าม Header
+
 	for _, record := range records[1:] {
 		if len(record) < 4 {
 			continue
