@@ -24,7 +24,7 @@ func main() {
 	w := a.NewWindow("Auto Clicker " + version)
 	w.Resize(fyne.NewSize(300, 400))
 
-	statusLabel := widget.NewLabel("F1: Play/Stop | F2: Record | F3: Add Point")
+	statusLabel := widget.NewLabel("F1: Play/Stop | F2: Record/Stop | F3: Add Point")
 	recorder := NewRecorder()
 
 	var pointsList *widget.List
