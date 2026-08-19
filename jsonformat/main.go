@@ -15,7 +15,7 @@ type ClickAction struct {
 }
 
 func main() {
-	filename := "autoclicker-store.json"
+	filename := "autoclicker-db.json"
 
 	fileData, err := os.ReadFile(filename)
 	if err != nil {

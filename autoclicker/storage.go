@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	fileName        = "autoclicker-store.csv"
+	fileName        = "autoclicker-db.csv"
 	defaultDelaySec = 1.0
 )
 
