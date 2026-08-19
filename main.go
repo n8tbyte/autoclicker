@@ -15,7 +15,7 @@ import (
 func main() {
 	a := app.New()
 	w := a.NewWindow("Auto Clicker " + version)
-	w.Resize(fyne.NewSize(100, 400))
+	w.Resize(fyne.NewSize(300, 400))
 
 	statusLabel := widget.NewLabel("Press F2 to start recording")
 	recorder := NewRecorder()
@@ -122,18 +122,9 @@ func main() {
 		updateLabel(statusLabel, fmt.Sprintf("Reloaded %d points from CSV", len(displayPoints)))
 	})
 
-	tableHeader := container.NewGridWithColumns(5,
-		widget.NewLabelWithStyle("#", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("X", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("Y", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("Delay", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("Action", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-	)
-
 	topBox := container.NewVBox(
 		statusLabel,
 		container.NewGridWithColumns(2, btnPlay, btnReload),
-		tableHeader,
 	)
 
 	w.SetContent(container.NewBorder(
