@@ -1,5 +1,5 @@
 # autoclicker
 
-go build -ldflags="-s -w -H=windowsgui" -trimpath .
+go build -ldflags="-s -w -H=windowsgui -X main.version=0.1.1" -trimpath .
 
 repomix --remove-comments --remove-empty-lines --include "**/*.go"
