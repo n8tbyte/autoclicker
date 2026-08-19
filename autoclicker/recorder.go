@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"os"
 	"sync"
 )
 
@@ -39,9 +37,8 @@ func (r *Recorder) Start() int {
 	r.isRecording = true
 	r.recorded = []ClickPoint{}
 
-	if data, err := os.ReadFile(fileName); err == nil {
-		_ = json.Unmarshal(data, &r.recorded)
-	}
+	// โหลดข้อมูลเก่าจาก CSV มาแสดงตอนเริ่มบันทึก (ถ้ามี)
+	r.recorded = loadPointsFromCSV()
 	return len(r.recorded)
 }
 
@@ -52,7 +49,7 @@ func (r *Recorder) Stop() ([]ClickPoint, error) {
 	copy(dataToSave, r.recorded)
 	r.mu.Unlock()
 
-	if err := savePointsToJSON(dataToSave); err != nil {
+	if err := savePointsToCSV(dataToSave); err != nil {
 		return nil, err
 	}
 
