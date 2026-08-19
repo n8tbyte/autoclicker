@@ -64,21 +64,21 @@ func main() {
 			entryX.OnChanged = func(val string) {
 				if x, err := strconv.Atoi(val); err == nil {
 					displayPoints[id].X = x
-					_ = savePointsToJSON(displayPoints)
+					_ = savePointsToCSV(displayPoints)
 				}
 			}
 
 			entryY.OnChanged = func(val string) {
 				if y, err := strconv.Atoi(val); err == nil {
 					displayPoints[id].Y = y
-					_ = savePointsToJSON(displayPoints)
+					_ = savePointsToCSV(displayPoints)
 				}
 			}
 
 			entryDelay.OnChanged = func(val string) {
 				if d, err := strconv.ParseFloat(val, 64); err == nil {
 					displayPoints[id].Delay = d
-					_ = savePointsToJSON(displayPoints)
+					_ = savePointsToCSV(displayPoints)
 				}
 			}
 
@@ -90,7 +90,7 @@ func main() {
 				}
 				if rowIndex >= 0 && rowIndex < len(displayPoints) {
 					displayPoints = append(displayPoints[:rowIndex], displayPoints[rowIndex+1:]...)
-					if err := savePointsToJSON(displayPoints); err != nil {
+					if err := savePointsToCSV(displayPoints); err != nil {
 						updateLabel(statusLabel, fmt.Sprintf("Error saving file: %v", err))
 						return
 					}
@@ -106,23 +106,22 @@ func main() {
 			if recorder.IsRecording() {
 				displayPoints = recorder.GetRecorded()
 			} else {
-				displayPoints = loadPointsFromJSON()
+				displayPoints = loadPointsFromCSV()
 			}
 			pointsList.Refresh()
 		})
 	}
 
-	displayPoints = loadPointsFromJSON()
+	displayPoints = loadPointsFromCSV()
 
 	btnPlay := widget.NewButton("Play", func() {
 		go playClicks(statusLabel)
 	})
 	btnReload := widget.NewButton("Reload", func() {
 		refreshUIList()
-		updateLabel(statusLabel, fmt.Sprintf("Reloaded %d points from JSON", len(displayPoints)))
+		updateLabel(statusLabel, fmt.Sprintf("Reloaded %d points from CSV", len(displayPoints)))
 	})
 
-	// หัวตารางยืดตามคอลัมน์ด้านล่างพอดี
 	tableHeader := container.NewGridWithColumns(5,
 		widget.NewLabelWithStyle("#", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewLabelWithStyle("X", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
@@ -150,7 +149,7 @@ func main() {
 }
 
 func playClicks(label *widget.Label) {
-	points := loadPointsFromJSON()
+	points := loadPointsFromCSV()
 	if len(points) == 0 {
 		updateLabel(label, "Warning: No points in file or file not found")
 		return
