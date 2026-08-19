@@ -37,7 +37,6 @@ func (r *Recorder) Start() int {
 	r.isRecording = true
 	r.recorded = []ClickPoint{}
 
-	// โหลดข้อมูลเก่าจาก CSV มาแสดงตอนเริ่มบันทึก (ถ้ามี)
 	r.recorded = loadPointsFromCSV()
 	return len(r.recorded)
 }
