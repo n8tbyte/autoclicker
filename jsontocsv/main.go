@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 )
 
-type ClickAction struct {
-	X      int     `json:"x"`
-	Y      int     `json:"y"`
-	Button string  `json:"button"`
-	Delay  float64 `json:"delay"`
+// ปรับ struct ให้ตรงกับ JSON
+type StreamItem struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 func main() {
@@ -25,8 +23,8 @@ func main() {
 		return
 	}
 
-	var actions []ClickAction
-	err = json.Unmarshal(fileData, &actions)
+	var items []StreamItem // ใช้ slice ของ struct ใหม่
+	err = json.Unmarshal(fileData, &items)
 	if err != nil {
 		fmt.Println("Error parsing JSON:", err)
 		return
@@ -42,14 +40,14 @@ func main() {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	writer.Write([]string{"x", "y", "button", "delay"})
+	// เขียน Header
+	writer.Write([]string{"key", "value"})
 
-	for _, a := range actions {
+	// วนลูปเขียนข้อมูล
+	for _, item := range items {
 		row := []string{
-			strconv.Itoa(a.X),
-			strconv.Itoa(a.Y),
-			a.Button,
-			fmt.Sprintf("%g", a.Delay),
+			item.Key,
+			item.Value,
 		}
 		writer.Write(row)
 	}
