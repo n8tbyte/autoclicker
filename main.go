@@ -24,7 +24,6 @@ func main() {
 	var pointsList *widget.List
 	var refreshUIList func()
 
-	// ใช้ NewList เพื่อให้ Layout ยืดตามความกว้างของหน้าต่างอัตโนมัติ (Auto Width)
 	pointsList = widget.NewList(
 		func() int {
 			return len(displayPoints)
@@ -39,7 +38,6 @@ func main() {
 
 			btnDelete := widget.NewButton("X", nil)
 
-			// ใช้ Grid 5 คอลัมน์ยืดเต็มพื้นที่ 100%
 			return container.NewGridWithColumns(5, labelNum, entryX, entryY, entryDelay, btnDelete)
 		},
 		func(id widget.ListItemID, o fyne.CanvasObject) {
@@ -51,7 +49,6 @@ func main() {
 			entryDelay := grid.Objects[3].(*widget.Entry)
 			btnDelete := grid.Objects[4].(*widget.Button)
 
-			// เคลียร์ Event เก่า
 			entryX.OnChanged = nil
 			entryY.OnChanged = nil
 			entryDelay.OnChanged = nil
@@ -117,10 +114,10 @@ func main() {
 
 	displayPoints = loadPointsFromJSON()
 
-	btnPlay := widget.NewButton("Play Saved Clicks", func() {
+	btnPlay := widget.NewButton("Play", func() {
 		go playClicks(statusLabel)
 	})
-	btnReload := widget.NewButton("Reload JSON", func() {
+	btnReload := widget.NewButton("Reload", func() {
 		refreshUIList()
 		updateLabel(statusLabel, fmt.Sprintf("Reloaded %d points from JSON", len(displayPoints)))
 	})
