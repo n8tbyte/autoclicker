@@ -11,6 +11,7 @@ import (
 
 const (
 	wmHotkey = 0x0312
+	vkF1     = 0x70 // F1 Key Code
 	vkF2     = 0x71
 	vkF3     = 0x72
 )
@@ -32,10 +33,17 @@ type winMSG struct {
 }
 
 func listenHotkeys(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
-	procRegisterHK.Call(0, 1, 0, vkF2)
-	procRegisterHK.Call(0, 2, 0, vkF3)
+	// Register F1 (ID: 3), F2 (ID: 1), F3 (ID: 2)
+	r0, _, _ := procRegisterHK.Call(0, 3, 0, vkF1)
+	r1, _, _ := procRegisterHK.Call(0, 1, 0, vkF2)
+	r2, _, _ := procRegisterHK.Call(0, 2, 0, vkF3)
+
+	if r0 == 0 || r1 == 0 || r2 == 0 {
+		updateLabel(label, "Error: Failed to register hotkeys (F1/F2/F3 already in use)")
+	}
 
 	defer func() {
+		procUnregisterHK.Call(0, 3)
 		procUnregisterHK.Call(0, 1)
 		procUnregisterHK.Call(0, 2)
 	}()
@@ -49,9 +57,11 @@ func listenHotkeys(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
 
 		if msg.Message == wmHotkey {
 			switch msg.WParam {
-			case 1:
+			case 3: // F1
+				togglePlayStop(label, recorder)
+			case 1: // F2
 				handleToggleRecording(recorder, label, onUpdateUI)
-			case 2:
+			case 2: // F3
 				handleAddPoint(recorder, label, onUpdateUI)
 			}
 		}
@@ -61,7 +71,7 @@ func listenHotkeys(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
 func handleToggleRecording(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
 	if !recorder.IsRecording() {
 		loadedCount := recorder.Start()
-		updateLabel(label, fmt.Sprintf("Recording... (Loaded %d existing points)", loadedCount))
+		updateLabel(label, fmt.Sprintf("Recording (Loaded %d existing points)", loadedCount))
 	} else {
 		savedPoints, err := recorder.Stop()
 		if err != nil {
