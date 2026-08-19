@@ -28,23 +28,22 @@ func main() {
 	recorder := NewRecorder()
 
 	var pointsList *widget.List
-	var refreshUIList func()
+	refreshUIList := func() {
+		fyne.Do(func() { pointsList.Refresh() })
+	}
 
 	pointsList = widget.NewList(
-		func() int {
-			return recorder.Len()
-		},
+		recorder.Len,
 		func() fyne.CanvasObject {
-			labelNum := widget.NewLabel("")
-			labelNum.Alignment = fyne.TextAlignCenter
-
-			entryX := widget.NewEntry()
-			entryY := widget.NewEntry()
-			entryDelay := widget.NewEntry()
-
-			btnDelete := widget.NewButton("X", nil)
-
-			return container.NewGridWithColumns(5, labelNum, entryX, entryY, entryDelay, btnDelete)
+			lblNum := widget.NewLabel("")
+			lblNum.Alignment = fyne.TextAlignCenter
+			return container.NewGridWithColumns(5,
+				lblNum,
+				widget.NewEntry(),
+				widget.NewEntry(),
+				widget.NewEntry(),
+				widget.NewButton("X", nil),
+			)
 		},
 		func(id widget.ListItemID, o fyne.CanvasObject) {
 			pt, ok := recorder.GetAt(id)
@@ -53,41 +52,34 @@ func main() {
 			}
 
 			grid := o.(*fyne.Container)
-
-			labelNum := grid.Objects[0].(*widget.Label)
+			lblNum := grid.Objects[0].(*widget.Label)
 			entryX := grid.Objects[1].(*widget.Entry)
 			entryY := grid.Objects[2].(*widget.Entry)
 			entryDelay := grid.Objects[3].(*widget.Entry)
 			btnDelete := grid.Objects[4].(*widget.Button)
 
-			entryX.OnChanged = nil
-			entryY.OnChanged = nil
-			entryDelay.OnChanged = nil
-			btnDelete.OnTapped = nil
+			entryX.OnChanged, entryY.OnChanged, entryDelay.OnChanged, btnDelete.OnTapped = nil, nil, nil, nil
 
-			labelNum.SetText(fmt.Sprintf("%d", id+1))
-			entryX.SetText(fmt.Sprintf("%d", pt.X))
-			entryY.SetText(fmt.Sprintf("%d", pt.Y))
+			lblNum.SetText(fmt.Sprintf("%d", id+1))
+			entryX.SetText(strconv.Itoa(pt.X))
+			entryY.SetText(strconv.Itoa(pt.Y))
 			entryDelay.SetText(fmt.Sprintf("%.1f", pt.Delay))
 
-			entryX.OnChanged = func(val string) {
-				if x, err := strconv.Atoi(val); err == nil {
+			entryX.OnChanged = func(v string) {
+				if x, err := strconv.Atoi(v); err == nil {
 					_ = recorder.UpdatePoint(id, func(p *ClickPoint) { p.X = x })
 				}
 			}
-
-			entryY.OnChanged = func(val string) {
-				if y, err := strconv.Atoi(val); err == nil {
+			entryY.OnChanged = func(v string) {
+				if y, err := strconv.Atoi(v); err == nil {
 					_ = recorder.UpdatePoint(id, func(p *ClickPoint) { p.Y = y })
 				}
 			}
-
-			entryDelay.OnChanged = func(val string) {
-				if d, err := strconv.ParseFloat(val, 64); err == nil {
+			entryDelay.OnChanged = func(v string) {
+				if d, err := strconv.ParseFloat(v, 64); err == nil {
 					_ = recorder.UpdatePoint(id, func(p *ClickPoint) { p.Delay = d })
 				}
 			}
-
 			btnDelete.OnTapped = func() {
 				if err := recorder.DeletePoint(id); err != nil {
 					updateLabel(statusLabel, err.Error())
@@ -99,15 +91,7 @@ func main() {
 		},
 	)
 
-	refreshUIList = func() {
-		fyne.Do(func() {
-			pointsList.Refresh()
-		})
-	}
-
-	btnPlay := widget.NewButton("Play", func() {
-		togglePlayStop(statusLabel, recorder)
-	})
+	btnPlay := widget.NewButton("Play", func() { togglePlayStop(statusLabel, recorder) })
 	btnReload := widget.NewButton("Reload", func() {
 		recorder.Load()
 		refreshUIList()
@@ -119,14 +103,7 @@ func main() {
 		container.NewGridWithColumns(2, btnPlay, btnReload),
 	)
 
-	w.SetContent(container.NewBorder(
-		topBox,
-		nil,
-		nil,
-		nil,
-		pointsList,
-	))
-
+	w.SetContent(container.NewBorder(topBox, nil, nil, nil, pointsList))
 	go listenHotkeys(recorder, statusLabel, refreshUIList)
 	w.ShowAndRun()
 }
@@ -134,7 +111,6 @@ func main() {
 func togglePlayStop(label *widget.Label, recorder *Recorder) {
 	playMu.Lock()
 	if isPlaying {
-		// หากกำลังเล่นอยู่ ให้ส่งสัญญาณหยุด
 		if stopChan != nil {
 			close(stopChan)
 			stopChan = nil
@@ -152,7 +128,7 @@ func togglePlayStop(label *widget.Label, recorder *Recorder) {
 	go playClicks(label, recorder, ch)
 }
 
-func playClicks(label *widget.Label, recorder *Recorder, ch chan struct{}) {
+func playClicks(label *widget.Label, recorder *Recorder, stopCh chan struct{}) {
 	defer func() {
 		playMu.Lock()
 		isPlaying = false
@@ -168,9 +144,8 @@ func playClicks(label *widget.Label, recorder *Recorder, ch chan struct{}) {
 
 	updateLabel(label, "Playing (Press F1 to stop)")
 	for _, pt := range points {
-		// ตรวจสอบสัญญาณหยุด
 		select {
-		case <-ch:
+		case <-stopCh:
 			updateLabel(label, "Stopped by user")
 			return
 		default:
@@ -184,9 +159,8 @@ func playClicks(label *widget.Label, recorder *Recorder, ch chan struct{}) {
 			delaySec = defaultDelaySec
 		}
 
-		// รอตาม Delay โดยพร้อมรับสัญญาณหยุดทันที
 		select {
-		case <-ch:
+		case <-stopCh:
 			updateLabel(label, "Stopped by user")
 			return
 		case <-time.After(time.Duration(delaySec * float64(time.Second))):
@@ -196,7 +170,5 @@ func playClicks(label *widget.Label, recorder *Recorder, ch chan struct{}) {
 }
 
 func updateLabel(label *widget.Label, text string) {
-	fyne.Do(func() {
-		label.SetText(text)
-	})
+	fyne.Do(func() { label.SetText(text) })
 }

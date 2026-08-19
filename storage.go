@@ -19,22 +19,22 @@ func savePointsToCSV(points []ClickPoint) error {
 	}
 	defer file.Close()
 
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
+	w := csv.NewWriter(file)
+	defer w.Flush()
 
-	if err := writer.Write([]string{"x", "y", "button", "delay"}); err != nil {
-		return fmt.Errorf("failed to write header: %w", err)
+	if err := w.Write([]string{"x", "y", "button", "delay"}); err != nil {
+		return err
 	}
 
 	for _, pt := range points {
-		record := []string{
+		rec := []string{
 			strconv.Itoa(pt.X),
 			strconv.Itoa(pt.Y),
 			pt.Button,
 			strconv.FormatFloat(pt.Delay, 'f', -1, 64),
 		}
-		if err := writer.Write(record); err != nil {
-			return fmt.Errorf("failed to write record: %w", err)
+		if err := w.Write(rec); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -43,38 +43,27 @@ func savePointsToCSV(points []ClickPoint) error {
 func loadPointsFromCSV() []ClickPoint {
 	file, err := os.Open(fileName)
 	if err != nil {
-		return []ClickPoint{}
+		return nil
 	}
 	defer file.Close()
 
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
+	records, err := csv.NewReader(file).ReadAll()
 	if err != nil || len(records) <= 1 {
-		return []ClickPoint{}
+		return nil
 	}
 
 	var points []ClickPoint
-
-	for _, record := range records[1:] {
-		if len(record) < 4 {
+	for _, rec := range records[1:] {
+		if len(rec) < 4 {
 			continue
 		}
-		x, errX := strconv.Atoi(record[0])
-		y, errY := strconv.Atoi(record[1])
-		button := record[2]
-		delay, errD := strconv.ParseFloat(record[3], 64)
+		x, errX := strconv.Atoi(rec[0])
+		y, errY := strconv.Atoi(rec[1])
+		delay, errD := strconv.ParseFloat(rec[3], 64)
 
-		if errX != nil || errY != nil || errD != nil {
-			continue
+		if errX == nil && errY == nil && errD == nil {
+			points = append(points, ClickPoint{X: x, Y: y, Button: rec[2], Delay: delay})
 		}
-
-		points = append(points, ClickPoint{
-			X:      x,
-			Y:      y,
-			Button: button,
-			Delay:  delay,
-		})
 	}
-
 	return points
 }

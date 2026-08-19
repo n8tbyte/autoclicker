@@ -12,9 +12,7 @@ type Recorder struct {
 }
 
 func NewRecorder() *Recorder {
-	r := &Recorder{
-		recorded: make([]ClickPoint, 0),
-	}
+	r := &Recorder{}
 	r.Load()
 	return r
 }
@@ -57,7 +55,6 @@ func (r *Recorder) Len() int {
 func (r *Recorder) Start() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	r.isRecording = true
 	r.recorded = loadPointsFromCSV()
 	return len(r.recorded)
@@ -65,66 +62,45 @@ func (r *Recorder) Start() int {
 
 func (r *Recorder) Stop() ([]ClickPoint, error) {
 	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.isRecording = false
-	dataToSave := make([]ClickPoint, len(r.recorded))
-	copy(dataToSave, r.recorded)
-	r.mu.Unlock()
-
-	if err := savePointsToCSV(dataToSave); err != nil {
-		return nil, err
-	}
-
-	return dataToSave, nil
+	err := r.saveLocked()
+	return r.recorded, err
 }
 
 func (r *Recorder) AddPoint(x, y int, button string, delay float64) (int, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	if !r.isRecording {
 		return 0, false
 	}
-
-	r.recorded = append(r.recorded, ClickPoint{
-		X:      x,
-		Y:      y,
-		Button: button,
-		Delay:  delay,
-	})
+	r.recorded = append(r.recorded, ClickPoint{X: x, Y: y, Button: button, Delay: delay})
 	return len(r.recorded), true
 }
 
 func (r *Recorder) UpdatePoint(index int, updateFn func(pt *ClickPoint)) error {
 	r.mu.Lock()
+	defer r.mu.Unlock()
 	if index < 0 || index >= len(r.recorded) {
-		r.mu.Unlock()
 		return fmt.Errorf("index out of range")
 	}
-
 	updateFn(&r.recorded[index])
-	dataToSave := make([]ClickPoint, len(r.recorded))
-	copy(dataToSave, r.recorded)
-	r.mu.Unlock()
-
-	return savePointsToCSV(dataToSave)
+	return r.saveLocked()
 }
 
 func (r *Recorder) DeletePoint(index int) error {
 	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.isRecording {
-		r.mu.Unlock()
 		return fmt.Errorf("cannot delete while recording")
 	}
-
 	if index < 0 || index >= len(r.recorded) {
-		r.mu.Unlock()
 		return fmt.Errorf("index out of range")
 	}
-
 	r.recorded = append(r.recorded[:index], r.recorded[index+1:]...)
-	dataToSave := make([]ClickPoint, len(r.recorded))
-	copy(dataToSave, r.recorded)
-	r.mu.Unlock()
+	return r.saveLocked()
+}
 
-	return savePointsToCSV(dataToSave)
+func (r *Recorder) saveLocked() error {
+	return savePointsToCSV(r.recorded)
 }

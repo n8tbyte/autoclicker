@@ -11,7 +11,7 @@ import (
 
 const (
 	wmHotkey = 0x0312
-	vkF1     = 0x70 // F1 Key Code
+	vkF1     = 0x70
 	vkF2     = 0x71
 	vkF3     = 0x72
 )
@@ -33,20 +33,19 @@ type winMSG struct {
 }
 
 func listenHotkeys(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
-	// Register F1 (ID: 3), F2 (ID: 1), F3 (ID: 2)
-	r0, _, _ := procRegisterHK.Call(0, 3, 0, vkF1)
-	r1, _, _ := procRegisterHK.Call(0, 1, 0, vkF2)
-	r2, _, _ := procRegisterHK.Call(0, 2, 0, vkF3)
-
-	if r0 == 0 || r1 == 0 || r2 == 0 {
-		updateLabel(label, "Error: Failed to register hotkeys (F1/F2/F3 already in use)")
+	hotkeys := map[uintptr]uintptr{
+		3: vkF1, // F1 -> Play/Stop
+		1: vkF2, // F2 -> Record
+		2: vkF3, // F3 -> Add Point
 	}
 
-	defer func() {
-		procUnregisterHK.Call(0, 3)
-		procUnregisterHK.Call(0, 1)
-		procUnregisterHK.Call(0, 2)
-	}()
+	for id, vk := range hotkeys {
+		r, _, _ := procRegisterHK.Call(0, id, 0, vk)
+		if r == 0 {
+			updateLabel(label, "Error: Failed to register hotkeys (F1/F2/F3 in use)")
+		}
+		defer procUnregisterHK.Call(0, id)
+	}
 
 	var msg winMSG
 	for {
@@ -57,11 +56,11 @@ func listenHotkeys(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
 
 		if msg.Message == wmHotkey {
 			switch msg.WParam {
-			case 3: // F1
+			case 3:
 				togglePlayStop(label, recorder)
-			case 1: // F2
+			case 1:
 				handleToggleRecording(recorder, label, onUpdateUI)
-			case 2: // F3
+			case 2:
 				handleAddPoint(recorder, label, onUpdateUI)
 			}
 		}
@@ -70,15 +69,15 @@ func listenHotkeys(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
 
 func handleToggleRecording(recorder *Recorder, label *widget.Label, onUpdateUI func()) {
 	if !recorder.IsRecording() {
-		loadedCount := recorder.Start()
-		updateLabel(label, fmt.Sprintf("Recording (Loaded %d existing points)", loadedCount))
+		count := recorder.Start()
+		updateLabel(label, fmt.Sprintf("Recording (Loaded %d existing points)", count))
 	} else {
-		savedPoints, err := recorder.Stop()
+		points, err := recorder.Stop()
 		if err != nil {
 			updateLabel(label, fmt.Sprintf("Error: %v", err))
 			return
 		}
-		updateLabel(label, fmt.Sprintf("Saved (%d total points) to %s", len(savedPoints), fileName))
+		updateLabel(label, fmt.Sprintf("Saved (%d total points) to %s", len(points), fileName))
 	}
 	onUpdateUI()
 }
