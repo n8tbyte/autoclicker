@@ -15,7 +15,7 @@ import (
 func main() {
 	a := app.New()
 	w := a.NewWindow("Auto Clicker " + version)
-	w.Resize(fyne.NewSize(100, 300))
+	w.Resize(fyne.NewSize(100, 400))
 
 	statusLabel := widget.NewLabel("Press F2 to start recording")
 	recorder := NewRecorder()
