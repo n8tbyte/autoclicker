@@ -22,9 +22,7 @@ func savePointsToCSV(points []ClickPoint) error {
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
-	if err := w.Write([]string{"x", "y", "button", "delay"}); err != nil {
-		return err
-	}
+	// เอาการเขียน header w.Write([]string{"x", "y", "button", "delay"}) ออกแล้ว
 
 	for _, pt := range points {
 		rec := []string{
@@ -48,12 +46,14 @@ func loadPointsFromCSV() []ClickPoint {
 	defer file.Close()
 
 	records, err := csv.NewReader(file).ReadAll()
-	if err != nil || len(records) <= 1 {
+	// เปลี่ยนเช็คความยาวจาก <= 1 เป็น == 0
+	if err != nil || len(records) == 0 {
 		return nil
 	}
 
 	var points []ClickPoint
-	for _, rec := range records[1:] {
+	// เปลี่ยนจาก records[1:] มาวนลูปอ่าน records ทั้งหมด
+	for _, rec := range records {
 		if len(rec) < 4 {
 			continue
 		}
