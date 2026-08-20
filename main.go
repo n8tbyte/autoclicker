@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/go-vgo/robotgo"
 )
@@ -81,12 +82,22 @@ func main() {
 				}
 			}
 			btnDelete.OnTapped = func() {
-				if err := recorder.DeletePoint(id); err != nil {
-					updateLabel(statusLabel, err.Error())
-					return
-				}
-				updateLabel(statusLabel, "Deleted point")
-				refreshUIList()
+				dialog.ShowConfirm(
+					"Confirm Delete",
+					fmt.Sprintf("Are you sure you want to delete point %d?", id+1),
+					func(confirm bool) {
+						if !confirm {
+							return
+						}
+						if err := recorder.DeletePoint(id); err != nil {
+							updateLabel(statusLabel, err.Error())
+							return
+						}
+						updateLabel(statusLabel, fmt.Sprintf("Deleted point %d", id+1))
+						refreshUIList()
+					},
+					w,
+				)
 			}
 		},
 	)
