@@ -170,11 +170,18 @@ func playClicks(label *widget.Label, recorder *Recorder, stopCh chan struct{}) {
 			delaySec = defaultDelaySec
 		}
 
+		timer := time.NewTimer(time.Duration(delaySec * float64(time.Second)))
 		select {
 		case <-stopCh:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			updateLabel(label, "Stopped by user")
 			return
-		case <-time.After(time.Duration(delaySec * float64(time.Second))):
+		case <-timer.C:
 		}
 	}
 	updateLabel(label, "Done")
