@@ -122,12 +122,14 @@ func togglePlayStop(label *widget.Label, recorder *Recorder) {
 	playMu.Lock()
 	if isPlaying {
 		if stopChan != nil {
-			close(stopChan)
-			stopChan = nil
+			select {
+			case <-stopChan:
+			default:
+				close(stopChan)
+			}
 		}
-		isPlaying = false
 		playMu.Unlock()
-		updateLabel(label, "Stopped by user")
+		updateLabel(label, "Stopping")
 		return
 	}
 
@@ -157,6 +159,7 @@ func playClicks(label *widget.Label, recorder *Recorder, stopCh chan struct{}) {
 	for _, pt := range points {
 		select {
 		case <-stopCh:
+			updateLabel(label, "Stopped by user")
 			return
 		default:
 		}
@@ -178,6 +181,7 @@ func playClicks(label *widget.Label, recorder *Recorder, stopCh chan struct{}) {
 				default:
 				}
 			}
+			updateLabel(label, "Stopped by user")
 			return
 		case <-timer.C:
 		}
