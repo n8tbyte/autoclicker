@@ -102,7 +102,6 @@ func main() {
 		},
 	)
 
-	btnPlay := widget.NewButton("Play", func() { togglePlayStop(statusLabel, recorder) })
 	btnReload := widget.NewButton("Reload", func() {
 		recorder.Load()
 		refreshUIList()
@@ -111,7 +110,7 @@ func main() {
 
 	topBox := container.NewVBox(
 		statusLabel,
-		container.NewGridWithColumns(2, btnPlay, btnReload),
+		btnReload,
 	)
 
 	w.SetContent(container.NewBorder(topBox, nil, nil, nil, pointsList))
